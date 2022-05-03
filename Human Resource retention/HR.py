@@ -1,7 +1,10 @@
+import joblib
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.metrics import classification_report, plot_confusion_matrix, accuracy_score, confusion_matrix
+from sklearn.pipeline import Pipeline
+
 
 
 #employee data
@@ -22,6 +25,7 @@ main_df.drop('employee_id',axis=1, inplace=True)
 
 #Custom transformer to fill missing values
 
+from sklearn.compose import ColumnTransformer
 from sklearn.base import BaseEstimator, TransformerMixin
 
 class missingDataTransformer(BaseEstimator, TransformerMixin):
@@ -40,15 +44,29 @@ missingProcessor = missingDataTransformer()
 
 #Function transformer 
 
-from sklearn.preprocessing import FunctionTransformer
+from sklearn.preprocessing import FunctionTransformer,OneHotEncoder
 
-dummyProcessor = FunctionTransformer(pd.get_dummies, kw_args={"drop_first": True})
+#dummyProcessor = FunctionTransformer(pd.get_dummies, kw_args={"drop_first": True})
+
+dummyProcessor = OneHotEncoder(drop='first')
 
 #scaler
 from sklearn.preprocessing import StandardScaler
 
 scaler = StandardScaler()
 
+
+numeric_features = [0,1,2,3,4,7,8]
+numeric_transformer = Pipeline([('scaler',scaler)])
+
+categorical_features = [5,6]
+categorical_transformer = Pipeline([('onehot', dummyProcessor)])
+
+main_preprocessor = ColumnTransformer(
+            transformers=[
+             ('cat',categorical_transformer,categorical_features),
+             ('num',numeric_transformer,numeric_features)
+            ])
 
 # the model
 
@@ -59,12 +77,10 @@ rf_model = RandomForestClassifier()
 
 #Build the Pipeline
 
-from sklearn.pipeline import Pipeline
-
 
 pipeline = Pipeline([('missingProcessor',missingProcessor),
-                     ('dummyProcessor',dummyProcessor),
-                     ('scaler',scaler),
+                     ('main_Processor',main_preprocessor),
+                     
                      ('classifier',rf_model)])
 
 
@@ -83,7 +99,7 @@ X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_
 
 pipeline.fit(X,y)
 
-#rf_pred = pipeline.predict(X_test)
+rf_pred = pipeline.predict(X_test)
 #print("Accuracy fo model {0:.2f}%".format(accuracy_score(y_test,rf_pred)*100))
 
 #print("\n")
@@ -97,8 +113,11 @@ pipeline.fit(X,y)
 
 # save the model
 from joblib import dump,load
+col_names = list(X.columns)
+dump(col_names,'col_names.joblib')
+
 dump(pipeline, 'HRR.joblib')
-
-
+print("model built")
+model2 = load('HRR.joblib')
 
 
